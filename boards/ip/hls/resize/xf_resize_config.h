@@ -37,6 +37,15 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "common/xf_common.h"
 #include "xf_config_params.h"
 #include "imgproc/xf_resize.hpp"
+#include "imgproc/xf_cvt_color.hpp"
+#include "imgproc/xf_cvt_color_1.hpp"
+#include "imgproc/xf_rgb2hsv.hpp"
+#include "imgproc/xf_bgr2hsv.hpp"
+#include "features/xf_fast.hpp"
+#include "common/xf_utility.h"
+#include "imgproc/xf_sobel.hpp"
+#include "core/xf_arithm.hpp"
+#include "imgproc/xf_gaussian_filter.hpp"
 
 /* Interface types*/
 #if RO
@@ -45,18 +54,29 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define NPC1 XF_NPPC1
 #endif
 
-
+/*
 #if GRAY
 #define TYPE XF_8UC1
 #endif
 #if RGBA
 #define TYPE XF_8UC3
 #endif
+*/
+
+#define FILTER_SIZE_3 1
+#define FILTER_SIZE_5 0
+#define FILTER_SIZE_7 0
+
+#define MAXCORNERS  1024
+#define NMS 1
 
 struct axis_t {
     ap_uint<24> data;
     ap_int<1> last;
 };
+
+typedef xf::Mat<XF_8UC3, HEIGHT, WIDTH, NPC1> RGB_IMAGE;
+typedef xf::Mat<XF_8UC1, HEIGHT, WIDTH, NPC1> GRAY_IMAGE;
 
 void resize_accel (axis_t *src, axis_t *dst, int src_rows, int src_cols, int dst_rows, int dst_cols);
 
