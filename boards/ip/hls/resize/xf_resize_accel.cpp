@@ -29,7 +29,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ***************************************************************************/
 #include "xf_resize_config.h"
 
-void axis2xfMat (xf::Mat<TYPE, HEIGHT, WIDTH, NPC1> &_src, axis_t *src, int src_rows, int src_cols) {
+void axis2xfMat (xf::Mat<XF_8UC3, HEIGHT, WIDTH, NPC1> &_src, axis_t *src, int src_rows, int src_cols) {
 #pragma HLS inline off
 
 	for (int i=0; i<src_rows; i++) {
@@ -42,7 +42,7 @@ void axis2xfMat (xf::Mat<TYPE, HEIGHT, WIDTH, NPC1> &_src, axis_t *src, int src_
 
 }
 
-void xfMat2axis (xf::Mat<TYPE, HEIGHT, WIDTH, NPC1> &_dst, axis_t *dst, int dst_rows, int dst_cols) {
+void xfMat2axis (xf::Mat<XF_8UC3, HEIGHT, WIDTH, NPC1> &_dst, axis_t *dst, int dst_rows, int dst_cols) {
 #pragma HLS inline off
 
 	for (int i=0; i<dst_rows; i++) {
@@ -68,19 +68,46 @@ void resize_accel (axis_t *src, axis_t *dst, int src_rows, int src_cols, int dst
 #pragma HLS INTERFACE s_axilite port=dst_rows
 #pragma HLS INTERFACE s_axilite port=dst_cols
 #pragma HLS INTERFACE s_axilite port=return
-
+	
+	// there are unused ones here
 	xf::Mat<TYPE, HEIGHT, WIDTH, NPC1> _src(src_rows, src_cols);
 	xf::Mat<TYPE, HEIGHT, WIDTH, NPC1> _dst(dst_rows, dst_cols);
-#pragma HLS stream variable=_src.data depth=150
-#pragma HLS stream variable=_dst.data depth=150
+	RGB_IMAGE  img_0(dst_rows, dst_cols);
+	GRAY_IMAGE img_1(dst_rows, dst_cols);
+	RGB_IMAGE  img_2(dst_rows, dst_cols);
+	GRAY_IMAGE sobel_0(dst_rows, dst_cols);
+	GRAY_IMAGE sobel_1(dst_rows, dst_cols);
+	GRAY_IMAGE sobel_out(dst_rows, dst_cols);
+	GRAY_IMAGE sobel_zero(dst_rows, dst_cols);
+	GRAY_IMAGE gaussian_out(dst_rows, dst_cols);
+	uchar_t threshold = 20;
+
+#pragma HLS stream variable=_src.data depth=200
+#pragma HLS stream variable=_dst.data depth=200
+#pragma HLS stream variable=img_0.data depth=200
+#pragma HLS stream variable=img_1.data depth=200
+#pragma HLS stream variable=img_2.data depth=200
+#pragma HLS stream variable=sobel_0.data depth=200
+#pragma HLS stream variable=sobel_1.data depth=200
+#pragma HLS stream variable=sobel_out.data depth=200
+#pragma HLS stream variable=sobel_zero.data depth=200
+#pragma HLS stream variable=gaussian_out.data depth=200
 
 #pragma HLS dataflow
-	
 	axis2xfMat(_src, src, src_rows, src_cols);	
+	// xf::resize <INTERPOLATION, XF_8UC3, HEIGHT, WIDTH, HEIGHT, WIDTH, NPC1, 2> (_src, _dst);    // not needed yet
+	xf::bgr2gray <XF_8UC3,XF_8UC1, HEIGHT, WIDTH, NPC1> (_src, img_1);
 
-	xf::resize <INTERPOLATION, TYPE, HEIGHT, WIDTH, HEIGHT, WIDTH, NPC1, 2> (_src, _dst);
+	xf::GaussianBlur<5, XF_BORDER_CONSTANT, XF_8UC1, HEIGHT, WIDTH, NPC1>(img_1, gaussian_out, 2.5);
 
-	xfMat2axis(_dst, dst, dst_rows, dst_cols);	
+	xf::Sobel<XF_BORDER_CONSTANT, 5 , XF_8UC1, XF_8UC1, HEIGHT, WIDTH, NPC1, false>(gaussian_out, sobel_1, sobel_0);
+	// xf::fast<NMS,XF_8UC1,HEIGHT,WIDTH,NPC1>(img_1, fasted, threshold);    // not okay yet
+
+	xf::zero<XF_8UC1, HEIGHT, WIDTH, NPC1>(sobel_0, sobel_zero);
+	xf::bitwise_or< XF_8UC1, HEIGHT, WIDTH, NPC1 >(sobel_zero, sobel_1, sobel_out);
+
+	xf::gray2bgr <XF_8UC1,XF_8UC3, HEIGHT, WIDTH, NPC1> (sobel_out, img_2);
+	xfMat2axis(img_2, dst, dst_rows, dst_cols);	
 
 }
 
