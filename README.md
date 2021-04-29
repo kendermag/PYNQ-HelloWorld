@@ -7,6 +7,7 @@ I created a simple image processing pipeline, consisting of the following xfOpen
 * zero
 * bitwise_or
 * gray2bgr
+
 The original _resize_accel_ function is still used as the top function for ease of usage, tho it is no longer doing resizing.
 The parameter variables are left as they are, the might be useful for transmitting simple information to the IP.
 
